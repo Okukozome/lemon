@@ -53,7 +53,7 @@ class HelpPage(BasePage):
 4. 语音播报：检测完成后，自动语音播报评价内容。
 5. 导出日志：可将检测记录导出为 Excel 文件。
 
---------------------------------------------------
+---------------------------------------------------------------
 技术架构：TensorFlow + OpenCV + GLM-4.5V + Tkinter
                     """
         text_widget = tk.Text(content_frame, font=FONT_MAIN, bg='#f8f8f8', fg='#333333',

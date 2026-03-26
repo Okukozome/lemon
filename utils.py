@@ -3,6 +3,8 @@ import threading
 import pyttsx3
 import cv2
 import os
+import numpy as np
+import time
 
 def image_to_base64(image_path):
     """将图片转换为 Base64 编码"""
@@ -24,16 +26,26 @@ def speak_text(text):
 
 
 def check_camera():
-    """检测摄像头是否可用，并增加防花屏验证"""
+    """检测摄像头是否可用的算法"""
     if os.name == 'nt':
         cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     else:
         cap = cv2.VideoCapture(0)
-
     if not cap or not cap.isOpened():
         return None
+    for _ in range(5):
+        cap.read()
     ret, frame = cap.read()
     if not ret or frame is None:
+        cap.release()
+        return None
+    std_dev = np.std(frame)
+    if std_dev < 5.0:
+        cap.release()
+        return None
+    diff_x = np.abs(np.diff(frame.astype(np.int16), axis=1))
+    mean_diff = np.mean(diff_x)
+    if mean_diff > 50:
         cap.release()
         return None
 
