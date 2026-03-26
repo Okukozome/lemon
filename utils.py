@@ -2,6 +2,7 @@ import base64
 import threading
 import pyttsx3
 import cv2
+import os
 
 def image_to_base64(image_path):
     """将图片转换为 Base64 编码"""
@@ -21,9 +22,19 @@ def speak_text(text):
 
     threading.Thread(target=run_tts, daemon=True).start()
 
+
 def check_camera():
-    """检测摄像头是否可用"""
-    cap = cv2.VideoCapture(0)
+    """检测摄像头是否可用，并增加防花屏验证"""
+    if os.name == 'nt':
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    else:
+        cap = cv2.VideoCapture(0)
+
     if not cap or not cap.isOpened():
         return None
+    ret, frame = cap.read()
+    if not ret or frame is None:
+        cap.release()
+        return None
+
     return cap

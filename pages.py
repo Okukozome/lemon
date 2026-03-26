@@ -102,8 +102,13 @@ class DetectionPage(BasePage):
 
         tk.Button(btn_frame, text="本地图片", font=FONT_BTN, width=12, relief=tk.GROOVE,
                   command=self.load_image).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="摄像头拍照", font=FONT_BTN, width=12, relief=tk.GROOVE,
-                  command=self.open_camera).pack(side=tk.RIGHT, padx=5)
+
+        self.cam_btn = tk.Button(btn_frame, text="打开摄像头", font=FONT_BTN, width=12, relief=tk.GROOVE,
+                                 command=self.toggle_camera)
+        self.cam_btn.pack(side=tk.RIGHT, padx=5)
+
+        self.default_btn_bg = self.cam_btn.cget('bg')
+        self.default_btn_fg = self.cam_btn.cget('fg')
 
         tk.Button(self.right_card, text="开始双擎检测", font=('Microsoft YaHei', 13, 'bold'),
                   bg='#27ae60', fg='white', relief=tk.FLAT, command=self.run_pipeline).pack(pady=10, fill=tk.X, padx=20)
@@ -117,53 +122,87 @@ class DetectionPage(BasePage):
         self.cnn_res_label.pack(anchor='w', pady=5)
 
         tk.Label(res_frame, text="AI 评价:", font=FONT_MAIN, bg='white', fg='#34495e').pack(anchor='w',
-                                                                                                  pady=(15, 0))
+                                                                                            pady=(15, 0))
 
         self.ai_text = tk.Text(res_frame, font=FONT_MAIN, wrap=tk.WORD, bg='#f4f6f7', bd=0, padx=10, pady=10)
         self.ai_text.pack(fill=tk.BOTH, expand=True, pady=10)
 
         self.current_image_path = None
 
+        # 追踪摄像头设备和弹窗的状态
+        self.cap = None
+        self.cam_win = None
+
+    def toggle_camera(self):
+        """状态机逻辑：根据当前窗口状态，决定是打开摄像头还是拍照"""
+        if self.cam_win is None or not self.cam_win.winfo_exists():
+            self.open_camera_window()
+        else:
+            self.take_photo()
+
+    def open_camera_window(self):
+        """唤起摄像头窗口，并改变主界面按钮状态"""
+        self.cap = check_camera()
+        if self.cap is None:
+            messagebox.showerror("设备错误", "未检测到可用的摄像头，或画面获取失败！请检查硬件连接。")
+            return
+
+        # 成功打开后，将主界面按钮变为红色“拍照”
+        self.cam_btn.config(text="拍照", bg='#e74c3c', fg='white')
+
+        self.cam_win = tk.Toplevel(self)
+        self.cam_win.title("摄像头画面")
+        self.cam_win.geometry("640x480")
+        self.cam_win.resizable(False, False)
+
+        # 绑定窗口关闭事件：如果用户直接点右上角“X”关掉弹窗，需要恢复按钮状态
+        self.cam_win.protocol("WM_DELETE_WINDOW", self.close_camera_window)
+
+        video_label = tk.Label(self.cam_win)
+        video_label.pack(expand=True, fill=tk.BOTH)
+
+        def update_frame():
+            # 确保窗口和摄像头仍在工作状态
+            if self.cam_win and self.cam_win.winfo_exists() and self.cap and self.cap.isOpened():
+                ret, frame = self.cap.read()
+                if ret:
+                    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    img = Image.fromarray(frame_rgb)
+                    imgtk = ImageTk.PhotoImage(image=img)
+                    video_label.imgtk = imgtk
+                    video_label.configure(image=imgtk)
+                self.cam_win.after(30, update_frame)
+
+        update_frame()
+
+    def take_photo(self):
+        """执行抓拍，并自动关闭窗口恢复状态"""
+        if self.cap and self.cap.isOpened():
+            ret, frame = self.cap.read()
+            if ret:
+                cv2.imwrite(TEMP_CAPTURE_PATH, frame)
+                self.set_image(TEMP_CAPTURE_PATH)
+
+        # 拍完照自动关闭窗口并恢复原样
+        self.close_camera_window()
+
+    def close_camera_window(self):
+        """资源释放与状态还原"""
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+
+        if self.cam_win and self.cam_win.winfo_exists():
+            self.cam_win.destroy()
+            self.cam_win = None
+
+        # 恢复主界面按钮的默认文字和颜色
+        self.cam_btn.config(text="打开摄像头", bg=self.default_btn_bg, fg=self.default_btn_fg)
+
     def load_image(self):
         file_path = filedialog.askopenfilename(title="选择检测图片", filetypes=[("Image files", "*.jpg *.jpeg *.png")])
         if file_path:
             self.set_image(file_path)
-
-    def open_camera(self):
-        """唤起摄像头"""
-        cap = check_camera()
-        if cap is None:
-            messagebox.showerror("设备错误", "未检测到可用的摄像头，请检查硬件连接！")
-            return
-
-        cam_win = tk.Toplevel(self)
-        cam_win.title("摄像头拍照")
-        cam_win.geometry("640x520")
-
-        video_label = tk.Label(cam_win)
-        video_label.pack(pady=10)
-
-        def update_frame():
-            ret, frame = cap.read()
-            if ret:
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                img = Image.fromarray(frame_rgb)
-                imgtk = ImageTk.PhotoImage(image=img)
-                video_label.imgtk = imgtk
-                video_label.configure(image=imgtk)
-            cam_win.after(20, update_frame)
-
-        def take_photo():
-            ret, frame = cap.read()
-            if ret:
-                cv2.imwrite(TEMP_CAPTURE_PATH, frame)
-                cap.release()
-                cam_win.destroy()
-                self.set_image(TEMP_CAPTURE_PATH)
-
-        tk.Button(cam_win, text="拍照并使用", font=FONT_BTN, bg='#e74c3c', fg='white', relief=tk.FLAT,
-                  command=take_photo).pack(pady=10, ipadx=20)
-        update_frame()
 
     def set_image(self, path):
         self.current_image_path = path
@@ -214,7 +253,7 @@ class DetectionPage(BasePage):
                 prompt = (f"观察图中的物体，本地CNN柠檬分类模型检测结果为：【{cnn_result}】，置信度：【{confidence:.2%}】。"
                           f"请结合图片画面，用不超过50个字的简短文字，给出一句专业评价或处理建议。"
                           f"注意，不要重复检测结果本身，回复使用纯文本，不要包含任何markdown标记。"
-                          f"边缘情况说明：由于CNN模型是三分类模型，如果物体不是柠檬，也请如实指出。")
+                          f"边缘情况说明：由于CNN模型是三分类模型，如果识别错误，也请如实指出。")
 
                 payload = {
                     "model": "GLM-4.5V",

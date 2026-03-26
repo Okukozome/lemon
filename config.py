@@ -14,7 +14,7 @@ TEMP_CAPTURE_PATH = './test_images/temp_capture.jpg'
 CLASS_NAMES = ['bad_quality', 'empty_background', 'good_quality']
 CLASS_TRANSLATION = {
     'bad_quality': '劣质柠檬',
-    'empty_background': '空背景',
+    'empty_background': '图中无柠檬',
     'good_quality': '优质柠檬'
 }
 
