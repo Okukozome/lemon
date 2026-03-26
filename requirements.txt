@@ -1,0 +1,7 @@
+tensorflow
+opencv-python
+pandas
+pillow
+requests
+pyttsx3
+python-dotenv
