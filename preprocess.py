@@ -20,9 +20,14 @@ def apply_cv2_enhancement(img_bgr):
 
 def preprocess_for_inference(image_path, target_size=(128, 128)):
     """供 GUI 调用，输出未归一化的 RGB 数组 (0-255)"""
-    img = cv2.imread(image_path)
+    try:
+        img_data = np.fromfile(image_path, dtype=np.uint8)
+        img = cv2.imdecode(img_data, cv2.IMREAD_COLOR)
+    except Exception as e:
+        raise ValueError(f"读取图像文件时发生异常: {image_path}, 错误信息: {str(e)}")
+
     if img is None:
-        raise ValueError(f"无法读取图像: {image_path}")
+        raise ValueError(f"无法解析图像文件 (可能文件已损坏或格式不受支持): {image_path}")
 
     # 缩放
     img_resized = cv2.resize(img, target_size)

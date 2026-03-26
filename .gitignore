@@ -2,6 +2,7 @@
 lemon_dataset
 models
 test_images
+*.png
 
 # --- 通用排除项 ---
 .env
